@@ -22,15 +22,11 @@ const Shop: React.FC = () => {
     const categoryParam = searchParams.get('category');
     const searchParam = searchParams.get('search');
 
-    if (categoryParam) {
+    if (categoryParam && categoryParam !== selectedCategory) {
       setSelectedCategory(categoryParam);
     }
 
     let filtered = [...catalogProducts];
-
-    if (categoryParam) {
-      filtered = filtered.filter(p => (p.category?.name || p.category) === categoryParam || p.category === categoryParam);
-    }
 
     if (searchParam) {
       const searchLower = searchParam.toLowerCase();
@@ -38,12 +34,17 @@ const Shop: React.FC = () => {
         p =>
           p.name.toLowerCase().includes(searchLower) ||
           (p.description || '').toLowerCase().includes(searchLower) ||
-          (p.brand || '').toLowerCase().includes(searchLower)
+          (p.brand || '').toLowerCase().includes(searchLower) ||
+          (p.category || '').toLowerCase().includes(searchLower)
       );
     }
 
     if (selectedCategory !== 'All') {
-      filtered = filtered.filter(p => p.category === selectedCategory);
+      filtered = filtered.filter(p => {
+        const productCategory = p.category || '';
+        return productCategory.toLowerCase() === selectedCategory.toLowerCase() ||
+               productCategory.toLowerCase().includes(selectedCategory.toLowerCase());
+      });
     }
 
     if (selectedBrand !== 'All') {
@@ -85,7 +86,7 @@ const Shop: React.FC = () => {
           CatalogAPI.listCategories()
         ]);
         const items = prods.data.products;
-        setCatalogProducts(items.map(p => ({
+        const mappedProducts = items.map(p => ({
           id: p._id,
           name: p.name,
           price: p.price,
@@ -93,19 +94,21 @@ const Shop: React.FC = () => {
           brand: p.brand || 'Brand',
           rating: p.rating || 0,
           reviews: p.numReviews || 0,
-          category: p.category?.name || 'All',
+          category: p.category?.name || 'Uncategorized',
+          description: p.description || '',
           originalPrice: p.compareAtPrice,
           inStock: (p.stock || 0) > 0
-        })));
-        
-        // Use main categories from navbar mega menu for filtering
-        const mainCategories = ['All', 'Skincare', 'Makeup', 'Hair Care', 'Fragrance', 'Bath & Body', 'Tools & Brushes', 'Hair', 'Gifts & Value Sets'];
-        setCategories(mainCategories);
-        
+        }));
+
+        setCatalogProducts(mappedProducts);
+
+        const uniqueCategories = ['All', ...new Set(mappedProducts.map(p => p.category).filter(Boolean))];
+        setCategories(uniqueCategories);
+
         const brandNames = ['All', ...new Set(items.map((p: any) => p.brand).filter(Boolean))];
         setBrands(brandNames);
       } catch (e) {
-        // fallback empty
+        console.error('Error loading products:', e);
       } finally {
         setLoading(false);
       }

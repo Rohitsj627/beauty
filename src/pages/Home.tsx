@@ -18,7 +18,6 @@ const Home: React.FC = () => {
           CatalogAPI.listProducts({ limit: 20 })
         ]);
         
-        // Map featured products
         const mappedFeatured = featured.data.products.map(p => ({
           id: p._id,
           name: p.name,
@@ -28,15 +27,15 @@ const Home: React.FC = () => {
           rating: p.rating || 0,
           reviews: p.numReviews || 0,
           category: p.category?.name || 'All',
+          description: p.description || '',
           originalPrice: p.compareAtPrice,
           inStock: (p.stock || 0) > 0,
           featured: p.isFeatured,
           trending: false
         }));
         
-        // Map trending products (use top rated products as trending)
         const mappedTrending = allProducts.data.products
-          .filter(p => !p.isFeatured) // Don't include featured products
+          .filter(p => !p.isFeatured)
           .sort((a: any, b: any) => (b.rating || 0) - (a.rating || 0))
           .slice(0, 4)
           .map(p => ({
@@ -48,6 +47,7 @@ const Home: React.FC = () => {
             rating: p.rating || 0,
             reviews: p.numReviews || 0,
             category: p.category?.name || 'All',
+            description: p.description || '',
             originalPrice: p.compareAtPrice,
             inStock: (p.stock || 0) > 0,
             featured: false,
