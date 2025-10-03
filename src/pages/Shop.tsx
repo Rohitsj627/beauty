@@ -12,7 +12,7 @@ const Shop: React.FC = () => {
   const [filteredProducts, setFilteredProducts] = useState<any[]>([]);
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [selectedBrand, setSelectedBrand] = useState('All');
-  const [priceRange, setPriceRange] = useState([0, 100]);
+  const [priceRange, setPriceRange] = useState([0, 10000]);
   const [minRating, setMinRating] = useState(0);
   const [sortBy, setSortBy] = useState('featured');
   const [showFilters, setShowFilters] = useState(false);
@@ -27,6 +27,7 @@ const Shop: React.FC = () => {
     }
 
     let filtered = [...catalogProducts];
+    console.log('Starting filter with', filtered.length, 'products');
 
     if (searchParam) {
       const searchLower = searchParam.toLowerCase();
@@ -37,6 +38,7 @@ const Shop: React.FC = () => {
           (p.brand || '').toLowerCase().includes(searchLower) ||
           (p.category || '').toLowerCase().includes(searchLower)
       );
+      console.log('After search filter:', filtered.length);
     }
 
     if (selectedCategory !== 'All') {
@@ -45,17 +47,21 @@ const Shop: React.FC = () => {
         return productCategory.toLowerCase() === selectedCategory.toLowerCase() ||
                productCategory.toLowerCase().includes(selectedCategory.toLowerCase());
       });
+      console.log('After category filter:', filtered.length, 'selectedCategory:', selectedCategory);
     }
 
     if (selectedBrand !== 'All') {
       filtered = filtered.filter(p => p.brand === selectedBrand);
+      console.log('After brand filter:', filtered.length, 'selectedBrand:', selectedBrand);
     }
 
     filtered = filtered.filter(
       p => p.price >= priceRange[0] && p.price <= priceRange[1]
     );
+    console.log('After price filter:', filtered.length, 'priceRange:', priceRange);
 
     filtered = filtered.filter(p => p.rating >= minRating);
+    console.log('After rating filter:', filtered.length, 'minRating:', minRating);
 
     switch (sortBy) {
       case 'price-low':
@@ -74,6 +80,7 @@ const Shop: React.FC = () => {
         break;
     }
 
+    console.log('Final filtered products:', filtered.length);
     setFilteredProducts(filtered);
   }, [searchParams, selectedCategory, selectedBrand, priceRange, minRating, sortBy, catalogProducts]);
 
@@ -100,13 +107,19 @@ const Shop: React.FC = () => {
           inStock: (p.stock || 0) > 0
         }));
 
+        console.log('Loaded products:', mappedProducts);
         setCatalogProducts(mappedProducts);
 
         const uniqueCategories = ['All', ...new Set(mappedProducts.map(p => p.category).filter(Boolean))];
+        console.log('Categories:', uniqueCategories);
         setCategories(uniqueCategories);
 
         const brandNames = ['All', ...new Set(items.map((p: any) => p.brand).filter(Boolean))];
+        console.log('Brands:', brandNames);
         setBrands(brandNames);
+
+        const maxPrice = Math.max(...mappedProducts.map(p => p.price), 100);
+        setPriceRange([0, maxPrice]);
       } catch (e) {
         console.error('Error loading products:', e);
       } finally {
@@ -119,7 +132,7 @@ const Shop: React.FC = () => {
   const resetFilters = () => {
     setSelectedCategory('All');
     setSelectedBrand('All');
-    setPriceRange([0, 100]);
+    setPriceRange([0, 10000]);
     setMinRating(0);
     setSortBy('featured');
   };
@@ -204,7 +217,7 @@ const Shop: React.FC = () => {
                     <input
                       type="range"
                       min="0"
-                      max="100"
+                      max="10000"
                       value={priceRange[1]}
                       onChange={e => setPriceRange([0, parseInt(e.target.value)])}
                       className="w-full accent-rose-500"

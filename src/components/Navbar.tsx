@@ -1,15 +1,67 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ShoppingCart, Heart, User, Search, MapPin, Users } from 'lucide-react';
 import { useCart } from '../contexts/CartContext';
 import { useAuth } from '../contexts/AuthContext';
+import { CatalogAPI } from '../lib/api';
 
 const Navbar: React.FC = () => {
   const [activeMegaMenu, setActiveMegaMenu] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchSuggestions, setSearchSuggestions] = useState<any[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [allProducts, setAllProducts] = useState<any[]>([]);
+  const searchRef = useRef<HTMLDivElement>(null);
   const { getTotalItems } = useCart();
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const loadProducts = async () => {
+      try {
+        const response = await CatalogAPI.listProducts({ limit: 100 });
+        setAllProducts(response.data.products.map(p => ({
+          id: p._id,
+          name: p.name,
+          price: p.price,
+          image: p.images?.[0]?.url || '',
+          category: p.category?.name || '',
+          brand: p.brand || ''
+        })));
+      } catch (e) {
+        console.error('Error loading products:', e);
+      }
+    };
+    loadProducts();
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    if (searchQuery.trim().length >= 2) {
+      const searchLower = searchQuery.toLowerCase();
+      const filtered = allProducts
+        .filter(p =>
+          p.name.toLowerCase().includes(searchLower) ||
+          p.brand.toLowerCase().includes(searchLower) ||
+          p.category.toLowerCase().includes(searchLower)
+        )
+        .slice(0, 5);
+      setSearchSuggestions(filtered);
+      setShowSuggestions(filtered.length > 0);
+    } else {
+      setSearchSuggestions([]);
+      setShowSuggestions(false);
+    }
+  }, [searchQuery, allProducts]);
 
   const megaMenuData = {
     'Gifts & Value Sets': {
@@ -151,7 +203,14 @@ const Navbar: React.FC = () => {
     if (searchQuery.trim()) {
       navigate(`/shop?search=${searchQuery}`);
       setSearchQuery('');
+      setShowSuggestions(false);
     }
+  };
+
+  const handleSuggestionClick = (product: any) => {
+    navigate(`/product/${product.id}`);
+    setSearchQuery('');
+    setShowSuggestions(false);
   };
 
   const handleSignOut = async () => {
@@ -178,15 +237,53 @@ const Navbar: React.FC = () => {
 
             {/* Search Bar */}
             <form onSubmit={handleSearch} className="hidden lg:flex flex-1 max-w-lg mx-8">
-              <div className="relative w-full">
+              <div className="relative w-full" ref={searchRef}>
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <input
                   type="text"
-                  placeholder="Search"
+                  placeholder="Search products..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
+                  onFocus={() => searchQuery.length >= 2 && setShowSuggestions(true)}
                   className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent"
                 />
+
+                {showSuggestions && searchSuggestions.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-xl z-50 max-h-96 overflow-y-auto">
+                    {searchSuggestions.map((product) => (
+                      <button
+                        key={product.id}
+                        type="button"
+                        onClick={() => handleSuggestionClick(product)}
+                        className="w-full flex items-center space-x-3 px-4 py-3 hover:bg-gray-50 transition-colors text-left border-b last:border-b-0"
+                      >
+                        {product.image ? (
+                          <img
+                            src={product.image}
+                            alt={product.name}
+                            className="w-12 h-12 object-cover rounded"
+                          />
+                        ) : (
+                          <div className="w-12 h-12 bg-gray-200 rounded flex items-center justify-center">
+                            <Search className="w-5 h-5 text-gray-400" />
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium text-gray-900 truncate">{product.name}</div>
+                          <div className="text-xs text-gray-500">{product.brand} • {product.category}</div>
+                        </div>
+                        <div className="text-sm font-semibold text-gray-900">${product.price}</div>
+                      </button>
+                    ))}
+                    <button
+                      type="submit"
+                      onClick={handleSearch}
+                      className="w-full px-4 py-3 text-sm font-medium text-center text-rose-600 hover:bg-gray-50 transition-colors"
+                    >
+                      View all results for "{searchQuery}"
+                    </button>
+                  </div>
+                )}
               </div>
             </form>
 
@@ -330,15 +427,46 @@ const Navbar: React.FC = () => {
         {/* Mobile Menu */}
         <div className="lg:hidden px-4 py-3 border-t">
           <form onSubmit={handleSearch} className="mb-3">
-            <div className="relative">
+            <div className="relative" ref={searchRef}>
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
               <input
                 type="text"
-                placeholder="Search..."
+                placeholder="Search products..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                onFocus={() => searchQuery.length >= 2 && setShowSuggestions(true)}
                 className="w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
               />
+
+              {showSuggestions && searchSuggestions.length > 0 && (
+                <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-xl z-50 max-h-80 overflow-y-auto">
+                  {searchSuggestions.map((product) => (
+                    <button
+                      key={product.id}
+                      type="button"
+                      onClick={() => handleSuggestionClick(product)}
+                      className="w-full flex items-center space-x-3 px-4 py-3 hover:bg-gray-50 transition-colors text-left border-b last:border-b-0"
+                    >
+                      {product.image ? (
+                        <img
+                          src={product.image}
+                          alt={product.name}
+                          className="w-12 h-12 object-cover rounded"
+                        />
+                      ) : (
+                        <div className="w-12 h-12 bg-gray-200 rounded flex items-center justify-center">
+                          <Search className="w-5 h-5 text-gray-400" />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium text-gray-900 truncate">{product.name}</div>
+                        <div className="text-xs text-gray-500">{product.brand}</div>
+                      </div>
+                      <div className="text-sm font-semibold">${product.price}</div>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </form>
           
